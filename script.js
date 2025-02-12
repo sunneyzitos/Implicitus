@@ -478,13 +478,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Save and Load functionality
     saveBtn.addEventListener('click', () => {
         const characterData = {
+            name: document.getElementById('character-name').value,
+            level: document.getElementById('level').value,
+            nex: document.getElementById('nex').value,
+            origin: document.getElementById('origin').value,
+            class: document.getElementById('class').value,
+            path: document.getElementById('path').value,
+            money: document.getElementById('money').value,
             attributes: {
-                agi: document.getElementById('agi').value,
-                for: document.getElementById('for').value,
-                vig: document.getElementById('vig').value,
-                pre: document.getElementById('pre').value,
-                int: document.getElementById('int').value,
-                pi: document.getElementById('pi').value
+                for: document.getElementById('attr-for').value,
+                agi: document.getElementById('attr-agi').value,
+                int: document.getElementById('attr-int').value,
+                pre: document.getElementById('attr-pre').value,
+                vig: document.getElementById('attr-vig').value,
+                incentivo: document.getElementById('attr-incentivo').value
             },
             stats: {
                 pv: {
@@ -498,13 +505,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 san: {
                     current: document.getElementById('san-current').value,
                     max: document.getElementById('san-max').value
-                }
+                },
+                defense: document.getElementById('defense').value,
+                block: document.getElementById('block').value,
+                dodge: document.getElementById('dodge').value,
+                protection: document.getElementById('protection').value,
+                resistance: document.getElementById('resistance').value
             },
-            skills: Array.from(skillsContainer.children).map(skill => ({
-                name: skill.firstChild.textContent,
-                level: skill.querySelector('select').value
+            skills: Array.from(document.getElementById('skills-container').children).map(skill => ({
+                name: skill.querySelector('div').textContent.split(' (')[0],
+                level: skill.querySelector('select').value,
+                bonus: skill.querySelector('input.skill-bonus').value
             })),
-            inventory: Array.from(inventoryContainer.children).map(item => ({
+            inventory: Array.from(document.getElementById('inventory-container').children).map(item => ({
                 name: item.querySelector('input[type="text"]').value,
                 weight: item.querySelector('input[type="number"]').value,
                 category: item.querySelector('select').value,
@@ -525,77 +538,126 @@ document.addEventListener('DOMContentLoaded', () => {
             }))
         };
 
-        const dataStr = JSON.stringify(characterData);
-        localStorage.setItem('characterSheet', dataStr);
-        alert('Ficha salva com sucesso!');
+        try {
+            localStorage.setItem('characterData', JSON.stringify(characterData));
+            alert('Ficha salva com sucesso!');
+        } catch (error) {
+            console.error('Erro ao salvar:', error);
+            alert('Erro ao salvar a ficha. Por favor, tente novamente.');
+        }
     });
 
     loadBtn.addEventListener('click', () => {
-        const savedData = localStorage.getItem('characterSheet');
-        if (savedData) {
-            const characterData = JSON.parse(savedData);
-            
-            // Load attributes
-            Object.entries(characterData.attributes).forEach(([attr, value]) => {
-                document.getElementById(attr).value = value;
-            });
+        try {
+            const savedData = localStorage.getItem('characterData');
+            if (savedData) {
+                const characterData = JSON.parse(savedData);
+                
+                // Load basic info
+                document.getElementById('character-name').value = characterData.name || '';
+                document.getElementById('level').value = characterData.level || '1';
+                document.getElementById('nex').value = characterData.nex || '0';
+                document.getElementById('origin').value = characterData.origin || '';
+                document.getElementById('class').value = characterData.class || '';
+                document.getElementById('path').value = characterData.path || '';
+                document.getElementById('money').value = characterData.money || '';
 
-            // Load stats
-            ['pv', 'pe', 'san'].forEach(stat => {
-                document.getElementById(`${stat}-current`).value = characterData.stats[stat].current;
-                document.getElementById(`${stat}-max`).value = characterData.stats[stat].max;
-                updateProgressBar(`${stat}-current`, `${stat}-max`, `.${stat}-bar`);
-            });
+                // Load attributes
+                const attributes = characterData.attributes || {};
+                document.getElementById('attr-for').value = attributes.for || '0';
+                document.getElementById('attr-agi').value = attributes.agi || '0';
+                document.getElementById('attr-int').value = attributes.int || '0';
+                document.getElementById('attr-pre').value = attributes.pre || '0';
+                document.getElementById('attr-vig').value = attributes.vig || '0';
+                document.getElementById('attr-incentivo').value = attributes.incentivo || '0';
 
-            // Load skills
-            Array.from(skillsContainer.children).forEach((skillElement, index) => {
-                if (characterData.skills[index]) {
-                    skillElement.querySelector('select').value = characterData.skills[index].level;
+                // Load stats
+                const stats = characterData.stats || {};
+                document.getElementById('pv-current').value = stats.pv?.current || '0';
+                document.getElementById('pv-max').value = stats.pv?.max || '0';
+                document.getElementById('pe-current').value = stats.pe?.current || '0';
+                document.getElementById('pe-max').value = stats.pe?.max || '0';
+                document.getElementById('san-current').value = stats.san?.current || '0';
+                document.getElementById('san-max').value = stats.san?.max || '0';
+                document.getElementById('defense').value = stats.defense || '0';
+                document.getElementById('block').value = stats.block || '0';
+                document.getElementById('dodge').value = stats.dodge || '0';
+                document.getElementById('protection').value = stats.protection || '0';
+                document.getElementById('resistance').value = stats.resistance || '0';
+
+                // Load skills
+                const skillsContainer = document.getElementById('skills-container');
+                skillsContainer.innerHTML = '';
+                if (characterData.skills) {
+                    characterData.skills.forEach(skillData => {
+                        const skill = predefinedSkills.find(s => s.name === skillData.name);
+                        if (skill) {
+                            const skillElement = createSkillElement(skill);
+                            skillElement.querySelector('select').value = skillData.level;
+                            skillElement.querySelector('input.skill-bonus').value = skillData.bonus;
+                            skillsContainer.appendChild(skillElement);
+                        }
+                    });
                 }
-            });
 
-            // Load inventory
-            inventoryContainer.innerHTML = '';
-            characterData.inventory.forEach(item => {
-                const itemElement = createInventoryItemElement();
-                itemElement.querySelector('input[type="text"]').value = item.name;
-                itemElement.querySelector('input[type="number"]').value = item.weight;
-                itemElement.querySelector('select').value = item.category;
-                itemElement.querySelector('textarea').value = item.description;
-                inventoryContainer.appendChild(itemElement);
-            });
+                // Load inventory
+                const inventoryContainer = document.getElementById('inventory-container');
+                inventoryContainer.innerHTML = '';
+                if (characterData.inventory) {
+                    characterData.inventory.forEach(itemData => {
+                        const itemElement = createInventoryItemElement();
+                        itemElement.querySelector('input[type="text"]').value = itemData.name;
+                        itemElement.querySelector('input[type="number"]').value = itemData.weight;
+                        itemElement.querySelector('select').value = itemData.category;
+                        itemElement.querySelector('textarea').value = itemData.description;
+                        inventoryContainer.appendChild(itemElement);
+                    });
+                }
 
-            // Load abilities
-            document.getElementById('abilities-container').innerHTML = '';
-            characterData.abilities.forEach(ability => {
-                const abilityElement = createAbilityElement();
-                abilityElement.querySelector('input.ability-name').value = ability.name;
-                abilityElement.querySelector('input.ability-pe').value = ability.pe;
-                abilityElement.querySelector('textarea.ability-description').value = ability.description;
-                document.getElementById('abilities-container').appendChild(abilityElement);
-            });
+                // Load abilities
+                const abilitiesContainer = document.getElementById('abilities-container');
+                abilitiesContainer.innerHTML = '';
+                if (characterData.abilities) {
+                    characterData.abilities.forEach(abilityData => {
+                        const abilityElement = createAbilityElement();
+                        abilityElement.querySelector('input.ability-name').value = abilityData.name;
+                        abilityElement.querySelector('input.ability-pe').value = abilityData.pe;
+                        abilityElement.querySelector('textarea.ability-description').value = abilityData.description;
+                        abilitiesContainer.appendChild(abilityElement);
+                    });
+                }
 
-            // Load rituals
-            document.getElementById('rituals-container').innerHTML = '';
-            characterData.rituals.forEach(ritual => {
-                const ritualElement = createRitualElement();
-                ritualElement.querySelector('input.ritual-name').value = ritual.name;
-                ritualElement.querySelector('input.ritual-pe').value = ritual.pe;
-                ritualElement.querySelector('textarea.ritual-description').value = ritual.description;
-                document.getElementById('rituals-container').appendChild(ritualElement);
-            });
+                // Load rituals
+                const ritualsContainer = document.getElementById('rituals-container');
+                ritualsContainer.innerHTML = '';
+                if (characterData.rituals) {
+                    characterData.rituals.forEach(ritualData => {
+                        const ritualElement = createRitualElement();
+                        ritualElement.querySelector('input.ritual-name').value = ritualData.name;
+                        ritualElement.querySelector('input.ritual-pe').value = ritualData.pe;
+                        ritualElement.querySelector('textarea.ritual-description').value = ritualData.description;
+                        ritualsContainer.appendChild(ritualElement);
+                    });
+                }
 
-            // Load notes
-            document.getElementById('notes-container').innerHTML = '';
-            characterData.notes.forEach(note => {
-                const noteElement = createNoteElement();
-                noteElement.querySelector('textarea.note-content').value = note.content;
-                document.getElementById('notes-container').appendChild(noteElement);
-            });
+                // Load notes
+                const notesContainer = document.getElementById('notes-container');
+                notesContainer.innerHTML = '';
+                if (characterData.notes) {
+                    characterData.notes.forEach(noteData => {
+                        const noteElement = createNoteElement();
+                        noteElement.querySelector('textarea.note-content').value = noteData.content;
+                        notesContainer.appendChild(noteElement);
+                    });
+                }
 
-            alert('Ficha carregada com sucesso!');
-        } else {
-            alert('Nenhuma ficha salva encontrada!');
+                alert('Ficha carregada com sucesso!');
+            } else {
+                alert('Nenhuma ficha salva encontrada!');
+            }
+        } catch (error) {
+            console.error('Erro ao carregar:', error);
+            alert('Erro ao carregar a ficha. Por favor, tente novamente.');
         }
     });
 });
